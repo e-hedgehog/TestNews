@@ -13,6 +13,7 @@ android {
 
         buildConfigField "String", "API_ENDPOINT", '"https://newsapi.org/"'
         buildConfigField "String", "API_KEY", '"fc71d69b3dee479ab6e35c7af1fde420"'
+        buildConfigField "String", "API_IMAGES_ENDPOINT", '"https://newsapi.org/images/flags/"'
     }
     buildTypes {
         release {

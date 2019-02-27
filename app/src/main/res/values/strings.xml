@@ -6,4 +6,5 @@
     <string name="original_article_button">Click to open original article</string>
     <string name="api_date_format">yyyy-mm-dd\'T\'HH:mm:ss\'Z\'</string>
     <string name="date_format">dd.MM.yyyy HH:mm:ss</string>
+    <string name="category">Category</string>
 </resources>
