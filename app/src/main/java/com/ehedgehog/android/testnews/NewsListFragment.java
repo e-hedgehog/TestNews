@@ -36,11 +36,17 @@ public class NewsListFragment extends Fragment {
 
     private static final String TAG = "NewsListFragment";
 
+    private static final int ITEMS_PER_PAGE = 20;
+
     private SwipeRefreshLayout mRefreshLayout;
     private RecyclerView mRecyclerView;
     private ProgressBar mProgressBar;
 
-    private List<Article> mArticles;
+//    private List<Article> mArticles;
+    private int mCurrentPage;
+    private int mTotalItems;
+    private int mPagesCount;
+    private boolean isLoading = false;
 
     private Disposable mNewsSubscription;
 
@@ -55,9 +61,10 @@ public class NewsListFragment extends Fragment {
 
         isOnline();
 
-        if (mArticles == null)
-            mArticles = new ArrayList<>();
+//        if (mArticles == null)
+//            mArticles = new ArrayList<>();
 
+        mCurrentPage = 1;
     }
 
     @Nullable
@@ -75,6 +82,23 @@ public class NewsListFragment extends Fragment {
         mRecyclerView.setLayoutManager(layoutManager);
         mRecyclerView.addItemDecoration(new DividerItemDecoration(getActivity(),
                 DividerItemDecoration.VERTICAL));
+        mRecyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
+            @Override
+            public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
+                super.onScrolled(recyclerView, dx, dy);
+                int visibleItemsCount = layoutManager.getChildCount();
+                int invisibleItemsCount = layoutManager.findFirstVisibleItemPosition();
+                int totalItemsCount = layoutManager.getItemCount();
+                if ((visibleItemsCount + invisibleItemsCount) >= totalItemsCount) {
+                    if ((mCurrentPage <= mPagesCount) && !isLoading) {
+                        Log.i(TAG, "Loading new data...");
+                        mCurrentPage++;
+                        mProgressBar.setVisibility(View.VISIBLE);
+                        loadNews();
+                    }
+                }
+            }
+        });
 
         loadNews();
 
@@ -91,12 +115,18 @@ public class NewsListFragment extends Fragment {
 
     private void loadNews() {
         mNewsSubscription = ApiFactory.buildNewsService()
-                .getAllNews("us")
-                .map(NewsResult::getArticles)
+                .getAllNews("us", mCurrentPage)
+                .map(newsResult -> {
+                    isLoading = true;
+                    mTotalItems = newsResult.getTotalResults();
+                    mPagesCount = (int) Math.ceil(mTotalItems / ITEMS_PER_PAGE);
+                    return newsResult.getArticles();
+                })
                 .flatMap(articles -> {
                     Realm.init(getActivity());
                     Realm.getDefaultInstance().executeTransaction(realm -> {
-                        realm.delete(Article.class);
+                        if (mCurrentPage == 1)
+                            realm.delete(Article.class);
                         realm.insert(articles);
                     });
                     return Observable.just(articles);
@@ -119,10 +149,17 @@ public class NewsListFragment extends Fragment {
             adapter = new NewsAdapter(getActivity(), articles);
             mRecyclerView.setAdapter(adapter);
         } else {
-            adapter.setArticles(articles);
-            adapter.notifyDataSetChanged();
+            if (mCurrentPage == 1) {
+                adapter.setArticles(articles);
+                adapter.notifyDataSetChanged();
+            } else {
+                adapter.addAll(articles);
+                adapter.notifyItemRangeInserted(
+                        mCurrentPage * ITEMS_PER_PAGE, ITEMS_PER_PAGE);
+            }
         }
 
+        isLoading = false;
         mProgressBar.setVisibility(View.GONE);
     }
 
@@ -146,6 +183,7 @@ public class NewsListFragment extends Fragment {
         );
         mRefreshLayout.setOnRefreshListener(() -> {
             mRefreshLayout.setRefreshing(true);
+            mCurrentPage = 1;
             if (isOnline())
                 loadNews();
             mRefreshLayout.setRefreshing(false);

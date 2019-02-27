@@ -42,4 +42,8 @@ public class NewsAdapter extends RecyclerView.Adapter<NewsHolder> {
     public void setArticles(List<Article> articles) {
         mArticles = articles;
     }
+
+    public void addAll(List<Article> articles) {
+        mArticles.addAll(articles);
+    }
 }
