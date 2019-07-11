@@ -15,6 +15,8 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import com.ehedgehog.android.testnews.model.Article;
+import com.ehedgehog.android.testnews.presenter.ArticlePresenter;
+import com.ehedgehog.android.testnews.view.ArticleView;
 import com.squareup.picasso.Picasso;
 
 import java.text.DateFormat;
@@ -23,7 +25,7 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
 
-public class ArticleFragment extends Fragment {
+public class ArticleFragment extends Fragment implements ArticleView {
 
     private static final String TAG = "ArticleFragment";
     private static final String ARG_ARTICLE = "article";
@@ -36,6 +38,8 @@ public class ArticleFragment extends Fragment {
     private Button mArticleButton;
 
     private Article mArticle;
+
+    private ArticlePresenter mPresenter;
 
     public static ArticleFragment newInstance(Article article) {
         Bundle args = new Bundle();
@@ -54,6 +58,9 @@ public class ArticleFragment extends Fragment {
         if (getArguments() != null)
             mArticle = (Article) getArguments().getSerializable(ARG_ARTICLE);
 
+        mPresenter = new ArticlePresenter();
+        mPresenter.bindView(this);
+        mPresenter.setModel(mArticle);
     }
 
     @Nullable
@@ -83,8 +90,7 @@ public class ArticleFragment extends Fragment {
         mContentTextView.setText(mArticle.getContent());
 
         mArticleButton = view.findViewById(R.id.article_button);
-        mArticleButton.setOnClickListener(v ->
-                startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(mArticle.getUrl()))));
+        mArticleButton.setOnClickListener(v -> mPresenter.onArticleButtonClicked());
 
         return view;
     }
@@ -103,5 +109,10 @@ public class ArticleFragment extends Fragment {
                 getResources().getString(R.string.date_format), Locale.getDefault());
 
         return format.format(apiDate);
+    }
+
+    @Override
+    public void openFullArticle(String url) {
+        startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
     }
 }

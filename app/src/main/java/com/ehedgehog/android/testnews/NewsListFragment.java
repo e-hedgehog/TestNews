@@ -12,13 +12,8 @@ import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.DividerItemDecoration;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
-import android.support.v7.widget.SearchView;
-import android.text.TextUtils;
 import android.util.Log;
 import android.view.LayoutInflater;
-import android.view.Menu;
-import android.view.MenuInflater;
-import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
@@ -28,23 +23,14 @@ import android.widget.Spinner;
 import android.widget.Toast;
 
 import com.ehedgehog.android.testnews.model.Article;
-import com.ehedgehog.android.testnews.model.NewsResult;
-import com.ehedgehog.android.testnews.network.ApiFactory;
+import com.ehedgehog.android.testnews.presenter.NewsListPresenter;
+import com.ehedgehog.android.testnews.view.NewsListView;
 
 import java.util.List;
 
-import io.reactivex.Observable;
-import io.reactivex.android.schedulers.AndroidSchedulers;
-import io.reactivex.disposables.Disposable;
-import io.reactivex.schedulers.Schedulers;
-import io.realm.Realm;
-import io.realm.RealmResults;
-
-public class NewsListFragment extends Fragment {
+public class NewsListFragment extends Fragment implements NewsListView {
 
     private static final String TAG = "NewsListFragment";
-
-    private static final int ITEMS_PER_PAGE = 20;
 
     private SwipeRefreshLayout mRefreshLayout;
     private RecyclerView mRecyclerView;
@@ -52,15 +38,11 @@ public class NewsListFragment extends Fragment {
     private Spinner mCategorySpinner;
     private Spinner mCountrySpinner;
 
-    private int mCurrentPage;
     private String mCategory;
     private String mCountry;
 
-    private int mTotalItems;
-    private int mPagesCount;
-    private boolean isLoading = false;
-
-    private Disposable mNewsSubscription;
+    private NewsListPresenter mPresenter;
+    private Paginator mPaginator;
 
     public static NewsListFragment newInstance() {
         return new NewsListFragment();
@@ -73,7 +55,16 @@ public class NewsListFragment extends Fragment {
 
         isOnline();
 
-        mCurrentPage = 1;
+//        if (savedInstanceState == null) {
+//            Log.i(TAG, "New presenter");
+        mPresenter = new NewsListPresenter();
+//        } else {
+//            Log.i(TAG, "Restore presenter");
+//            mPresenter = PresenterManager.get().restorePresenter(savedInstanceState);
+//        }
+
+        mPaginator = mPresenter.getPaginator();
+        mPaginator.resetCurrentPage();
     }
 
     @Nullable
@@ -106,91 +97,103 @@ public class NewsListFragment extends Fragment {
             @Override
             public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
                 super.onScrolled(recyclerView, dx, dy);
-                int visibleItemsCount = layoutManager.getChildCount();
-                int invisibleItemsCount = layoutManager.findFirstVisibleItemPosition();
-                int totalItemsCount = layoutManager.getItemCount();
-                if ((visibleItemsCount + invisibleItemsCount) >= totalItemsCount) {
-                    if ((mCurrentPage <= mPagesCount) && !isLoading) {
-                        Log.i(TAG, "Loading new data...");
-                        mCurrentPage++;
-                        mProgressBar.setVisibility(View.VISIBLE);
-                        loadNews(getAllNews(mCountry, mCategory, mCurrentPage));
-                    }
-                }
+                mPresenter.onScreenScrolledDown(layoutManager);
             }
         });
-
-
-        loadNews(getAllNews(mCountry, mCategory, mCurrentPage));
 
         return view;
     }
 
     @Override
+    public void onResume() {
+        super.onResume();
+        mPresenter.bindView(this);
+
+        if (!mPresenter.isModelAlreadyLoaded() && !mPresenter.isLoading()) {
+            Log.i(TAG, "loading in onResume");
+            mPresenter.loadNews(getActivity(), mCountry, mCategory);
+        }
+    }
+
+    @Override
     public void onPause() {
-        if (mNewsSubscription != null)
-            mNewsSubscription.dispose();
+        mPresenter.unbindView();
 
         super.onPause();
     }
 
-    private void loadNews(Observable<NewsResult> observable) {
-        mNewsSubscription = observable
-                .map(newsResult -> {
-                    isLoading = true;
-                    mTotalItems = newsResult.getTotalResults();
-                    mPagesCount = (int) Math.ceil(mTotalItems / ITEMS_PER_PAGE);
-                    return newsResult.getArticles();
-                })
-                .flatMap(articles -> {
-                    Realm.init(getActivity());
-                    Realm.getDefaultInstance().executeTransaction(realm -> {
-                        if (mCurrentPage == 1)
-                            realm.delete(Article.class);
-                        realm.insert(articles);
-                    });
-                    return Observable.just(articles);
-                })
-                .onErrorResumeNext(throwable -> {
-                    Realm.init(getActivity());
-                    Realm realm = Realm.getDefaultInstance();
-                    RealmResults<Article> results = realm.where(Article.class).findAll();
-                    return Observable.just(realm.copyFromRealm(results));
-                })
-                .subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(this::updateUI, throwable ->
-                        Log.e(TAG, "Something is wrong", throwable));
+    @Override
+    public void onSaveInstanceState(@NonNull Bundle outState) {
+        super.onSaveInstanceState(outState);
+//        Log.i(TAG, "Saving presenter");
+//        PresenterManager.get().savePresenter(mPresenter, outState);
     }
 
-    private Observable<NewsResult> getAllNews(String country, String category, int page) {
-        return ApiFactory.buildNewsService()
-                .getAllNews(country, category, page);
-    }
-
-    private Observable<NewsResult> searchNews(String query, int page) {
-        return ApiFactory.buildNewsService()
-                .searchNews(query, page);
-    }
-
-    private void updateUI(List<Article> articles) {
+    @Override
+    public void updateUI(List<Article> articles) {
         NewsAdapter adapter = (NewsAdapter) mRecyclerView.getAdapter();
         if (adapter == null) {
             adapter = new NewsAdapter(getActivity(), articles);
             mRecyclerView.setAdapter(adapter);
         } else {
-            if (mCurrentPage == 1) {
+            if (mPaginator.isFirst()) {
                 adapter.setArticles(articles);
                 adapter.notifyDataSetChanged();
             } else {
                 adapter.addAll(articles);
-                adapter.notifyItemRangeInserted(
-                        mCurrentPage * ITEMS_PER_PAGE, ITEMS_PER_PAGE);
+                adapter.notifyItemRangeInserted(mPaginator.getCurrentPage() *
+                        Paginator.ITEMS_PER_PAGE, Paginator.ITEMS_PER_PAGE);
             }
         }
 
-        isLoading = false;
+        mPresenter.setLoading(false);
         mProgressBar.setVisibility(View.GONE);
+    }
+
+    @Override
+    public void logErrorMessage(String message) {
+        Log.e(TAG, message);
+    }
+
+    @Override
+    public void scrollDownList(LinearLayoutManager manager) {
+        int visibleItemsCount = manager.getChildCount();
+        int invisibleItemsCount = manager.findFirstVisibleItemPosition();
+        int totalItemsCount = manager.getItemCount();
+        if ((visibleItemsCount + invisibleItemsCount) >= totalItemsCount) {
+            if ((mPaginator.getCurrentPage() <= mPaginator.getPagesCount())
+                    && !mPresenter.isLoading()) {
+                mPaginator.incrementCurrentPage();
+                Log.i(TAG, "Loading new data... " + mPaginator.getCurrentPage() + " page");
+                mProgressBar.setVisibility(View.VISIBLE);
+                mPresenter.loadNews(getActivity(), mCountry, mCategory);
+            }
+        }
+    }
+
+    @Override
+    public void refreshScreen() {
+        mRefreshLayout.setRefreshing(true);
+        mPaginator.resetCurrentPage();
+        if (isOnline()) {
+            Log.i(TAG, "Refreshing");
+            mPresenter.loadNews(getActivity(), mCountry, mCategory);
+        }
+        mRefreshLayout.setRefreshing(false);
+    }
+
+    @Override
+    public void changeCountry(String country, int position) {
+        mCountry = country;
+        NewsPreferences.setStoredCountry(getActivity(), position);
+        mProgressBar.setVisibility(View.VISIBLE);
+    }
+
+    @Override
+    public void changeCategory(String category, int position) {
+        mCategory = category;
+        NewsPreferences.setStoredCategory(getActivity(), position);
+        mProgressBar.setVisibility(View.VISIBLE);
     }
 
     private boolean isOnline() {
@@ -211,14 +214,8 @@ public class NewsListFragment extends Fragment {
                 android.R.color.holo_blue_light,
                 android.R.color.holo_orange_dark
         );
-        mRefreshLayout.setOnRefreshListener(() -> {
-            mRefreshLayout.setRefreshing(true);
-            mCurrentPage = 1;
-            if (isOnline()) {
-                loadNews(getAllNews(mCountry, mCategory, mCurrentPage));
-            }
-            mRefreshLayout.setRefreshing(false);
-        });
+        mRefreshLayout.setOnRefreshListener(() ->
+                mPresenter.onSwipeRefreshing());
     }
 
     private void setupCategorySpinner() {
@@ -235,11 +232,8 @@ public class NewsListFragment extends Fragment {
         mCategorySpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                mCategory = categories[position];
-                NewsPreferences.setStoredCategory(getActivity(), position);
-                mProgressBar.setVisibility(View.VISIBLE);
-                mCurrentPage = 1;
-                loadNews(getAllNews(mCountry, mCategory, mCurrentPage));
+                mPresenter.onCategorySelected(getActivity(),
+                        categories[position], mCountry, position);
             }
 
             @Override
@@ -263,11 +257,7 @@ public class NewsListFragment extends Fragment {
         mCountrySpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                mCountry = countries[position];
-                NewsPreferences.setStoredCountry(getActivity(), position);
-                mProgressBar.setVisibility(View.VISIBLE);
-                mCurrentPage = 1;
-                loadNews(getAllNews(mCountry, mCategory, mCurrentPage));
+                mPresenter.onCountrySelected(getActivity(), countries[position], mCategory, position);
             }
 
             @Override
