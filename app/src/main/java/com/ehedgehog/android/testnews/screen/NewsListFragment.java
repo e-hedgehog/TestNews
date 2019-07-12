@@ -1,4 +1,4 @@
-package com.ehedgehog.android.testnews;
+package com.ehedgehog.android.testnews.screen;
 
 import android.content.Context;
 import android.net.ConnectivityManager;
@@ -22,11 +22,17 @@ import android.widget.ProgressBar;
 import android.widget.Spinner;
 import android.widget.Toast;
 
+import com.ehedgehog.android.testnews.AppDelegate;
+import com.ehedgehog.android.testnews.NewsPreferences;
+import com.ehedgehog.android.testnews.Paginator;
+import com.ehedgehog.android.testnews.R;
 import com.ehedgehog.android.testnews.model.Article;
 import com.ehedgehog.android.testnews.presenter.NewsListPresenter;
 import com.ehedgehog.android.testnews.view.NewsListView;
 
 import java.util.List;
+
+import javax.inject.Inject;
 
 public class NewsListFragment extends Fragment implements NewsListView {
 
@@ -42,10 +48,19 @@ public class NewsListFragment extends Fragment implements NewsListView {
     private String mCountry;
 
     private NewsListPresenter mPresenter;
-    private Paginator mPaginator;
+    @Inject
+    Paginator mPaginator;
+    @Inject
+    NewsRepository mRepository;
 
     public static NewsListFragment newInstance() {
         return new NewsListFragment();
+    }
+
+    @Override
+    public void onAttach(Context context) {
+        AppDelegate.getAppComponent().injectNewsListActivity(this);
+        super.onAttach(context);
     }
 
     @Override
@@ -57,14 +72,15 @@ public class NewsListFragment extends Fragment implements NewsListView {
 
 //        if (savedInstanceState == null) {
 //            Log.i(TAG, "New presenter");
-        mPresenter = new NewsListPresenter();
+        mPresenter = new NewsListPresenter(mRepository, mPaginator, this, getActivity());
+        mPresenter.setupRepository();
 //        } else {
 //            Log.i(TAG, "Restore presenter");
 //            mPresenter = PresenterManager.get().restorePresenter(savedInstanceState);
 //        }
 
-        mPaginator = mPresenter.getPaginator();
-        mPaginator.resetCurrentPage();
+//        mPaginator = mPresenter.getPaginator();
+//        mPaginator.resetCurrentPage();
     }
 
     @Nullable
@@ -107,11 +123,10 @@ public class NewsListFragment extends Fragment implements NewsListView {
     @Override
     public void onResume() {
         super.onResume();
-        mPresenter.bindView(this);
 
         if (!mPresenter.isModelAlreadyLoaded() && !mPresenter.isLoading()) {
             Log.i(TAG, "loading in onResume");
-            mPresenter.loadNews(getActivity(), mCountry, mCategory);
+            mPresenter.loadNews(mCountry, mCategory);
         }
     }
 
@@ -166,7 +181,7 @@ public class NewsListFragment extends Fragment implements NewsListView {
                 mPaginator.incrementCurrentPage();
                 Log.i(TAG, "Loading new data... " + mPaginator.getCurrentPage() + " page");
                 mProgressBar.setVisibility(View.VISIBLE);
-                mPresenter.loadNews(getActivity(), mCountry, mCategory);
+                mPresenter.loadNews(mCountry, mCategory);
             }
         }
     }
@@ -177,7 +192,7 @@ public class NewsListFragment extends Fragment implements NewsListView {
         mPaginator.resetCurrentPage();
         if (isOnline()) {
             Log.i(TAG, "Refreshing");
-            mPresenter.loadNews(getActivity(), mCountry, mCategory);
+            mPresenter.loadNews(mCountry, mCategory);
         }
         mRefreshLayout.setRefreshing(false);
     }
@@ -232,8 +247,7 @@ public class NewsListFragment extends Fragment implements NewsListView {
         mCategorySpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                mPresenter.onCategorySelected(getActivity(),
-                        categories[position], mCountry, position);
+                mPresenter.onCategorySelected(categories[position], mCountry, position);
             }
 
             @Override
@@ -257,7 +271,7 @@ public class NewsListFragment extends Fragment implements NewsListView {
         mCountrySpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                mPresenter.onCountrySelected(getActivity(), countries[position], mCategory, position);
+                mPresenter.onCountrySelected(countries[position], mCategory, position);
             }
 
             @Override

@@ -1,4 +1,4 @@
-package com.ehedgehog.android.testnews;
+package com.ehedgehog.android.testnews.screen;
 
 import android.content.Intent;
 import android.net.Uri;
@@ -14,6 +14,7 @@ import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import com.ehedgehog.android.testnews.R;
 import com.ehedgehog.android.testnews.model.Article;
 import com.ehedgehog.android.testnews.presenter.ArticlePresenter;
 import com.ehedgehog.android.testnews.view.ArticleView;

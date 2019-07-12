@@ -1,8 +1,6 @@
-package com.ehedgehog.android.testnews;
+package com.ehedgehog.android.testnews.screen;
 
 import android.support.v4.app.Fragment;
-import android.support.v7.app.AppCompatActivity;
-import android.os.Bundle;
 
 public class NewsListActivity extends SingleFragmentActivity {
 

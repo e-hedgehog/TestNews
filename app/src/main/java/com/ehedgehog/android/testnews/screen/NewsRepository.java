@@ -1,11 +1,11 @@
-package com.ehedgehog.android.testnews;
+package com.ehedgehog.android.testnews.screen;
 
 import android.content.Context;
 import android.util.Log;
 
+import com.ehedgehog.android.testnews.Paginator;
 import com.ehedgehog.android.testnews.model.Article;
 import com.ehedgehog.android.testnews.model.NewsResult;
-import com.ehedgehog.android.testnews.network.ApiFactory;
 import com.ehedgehog.android.testnews.network.NewsService;
 
 import java.util.List;

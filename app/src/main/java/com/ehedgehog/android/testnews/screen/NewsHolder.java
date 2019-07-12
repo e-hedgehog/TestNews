@@ -1,4 +1,4 @@
-package com.ehedgehog.android.testnews;
+package com.ehedgehog.android.testnews.screen;
 
 import android.content.Context;
 import android.content.Intent;
@@ -8,6 +8,7 @@ import android.view.View;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import com.ehedgehog.android.testnews.R;
 import com.ehedgehog.android.testnews.model.Article;
 import com.squareup.picasso.Picasso;
 
@@ -34,7 +35,12 @@ public class NewsHolder extends RecyclerView.ViewHolder implements View.OnClickL
 
         mTitleTextView.setText(article.getTitle());
         mDescriptionTextView.setText(article.getDescription());
-        Picasso.get().load(article.getUrlToImage()).fit().into(mArticleImage);
+        String path = article.getUrlToImage();
+        if (path != null && !path.isEmpty()) {
+            mArticleImage.setVisibility(View.VISIBLE);
+            Picasso.get().load(article.getUrlToImage()).fit().into(mArticleImage);
+        } else
+            mArticleImage.setVisibility(View.GONE);
     }
 
     @Override

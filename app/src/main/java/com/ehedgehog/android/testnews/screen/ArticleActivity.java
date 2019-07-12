@@ -1,4 +1,4 @@
-package com.ehedgehog.android.testnews;
+package com.ehedgehog.android.testnews.screen;
 
 import android.content.Context;
 import android.content.Intent;

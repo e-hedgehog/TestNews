@@ -1,4 +1,4 @@
-package com.ehedgehog.android.testnews;
+package com.ehedgehog.android.testnews.screen;
 
 import android.content.Context;
 import android.support.annotation.NonNull;
@@ -7,6 +7,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 
+import com.ehedgehog.android.testnews.R;
 import com.ehedgehog.android.testnews.model.Article;
 
 import java.util.List;

@@ -4,10 +4,9 @@ import android.content.Context;
 import android.support.v7.widget.LinearLayoutManager;
 import android.util.Log;
 
-import com.ehedgehog.android.testnews.NewsRepository;
+import com.ehedgehog.android.testnews.screen.NewsRepository;
 import com.ehedgehog.android.testnews.Paginator;
 import com.ehedgehog.android.testnews.model.Article;
-import com.ehedgehog.android.testnews.network.ApiFactory;
 import com.ehedgehog.android.testnews.view.NewsListView;
 
 import java.util.List;
@@ -19,21 +18,26 @@ public class NewsListPresenter extends BasePresenter<List<Article>, NewsListView
     private Disposable mNewsSubscription;
     private NewsRepository mNewsRepository;
     private Paginator mPaginator;
+    private Context mContext;
 
     private boolean isLoading = false;
 
-    public NewsListPresenter() {
+    public NewsListPresenter(NewsRepository repository, Paginator paginator,
+                             NewsListView view, Context context) {
         Log.i("NewsListPresenter", "Presenter creating...");
+        mNewsRepository = repository;
+        mPaginator = paginator;
+        bindView(view);
+        mContext = context;
     }
 
-    @Override
-    public void bindView(NewsListView view) {
-        super.bindView(view);
+    public void setupRepository() {
+//        super.bindView(view);
 
-        if (mNewsRepository == null)
-            mNewsRepository = new NewsRepository(ApiFactory.buildNewsService());
+//        if (mNewsRepository == null)
+//            mNewsRepository = new NewsRepository(ApiFactory.buildNewsService());
 
-        mNewsRepository.setPaginator(getPaginator());
+        mNewsRepository.setPaginator(mPaginator);
         mNewsRepository.addListener(new NewsRepository.Listener() {
             @Override
             public void onNewsLoaded(List<Article> articles) {
@@ -56,36 +60,36 @@ public class NewsListPresenter extends BasePresenter<List<Article>, NewsListView
             mNewsSubscription.dispose();
     }
 
-    public Paginator getPaginator() {
-        if (mPaginator == null) {
-            Log.i("NewsListPresenter", "Creating new paginator");
-            mPaginator = new Paginator();
-        }
+//    public Paginator getPaginator() {
+//        if (mPaginator == null) {
+//            Log.i("NewsListPresenter", "Creating new paginator");
+//            mPaginator = new Paginator();
+//        }
+//
+//        return mPaginator;
+//    }
 
-        return mPaginator;
-    }
-
-    public void loadNews(Context context, String country, String category) {
+    public void loadNews(String country, String category) {
         setLoading(true);
-        mNewsSubscription = mNewsRepository.loadNews(context, country, category);
+        mNewsSubscription = mNewsRepository.loadNews(mContext, country, category);
     }
 
     public void onScreenScrolledDown(LinearLayoutManager manager) {
         getView().scrollDownList(manager);
     }
 
-    public void onCountrySelected(Context context, String country, String category, int position) {
+    public void onCountrySelected(String country, String category, int position) {
         getView().changeCountry(country, position);
         Log.i("NewsListPresenter", "Country selected");
         mPaginator.resetCurrentPage();
-        loadNews(context, country, category);
+        loadNews(country, category);
     }
 
-    public void onCategorySelected(Context context, String category, String country, int position) {
+    public void onCategorySelected(String category, String country, int position) {
         getView().changeCategory(category, position);
         Log.i("NewsListPresenter", "Category selected");
         mPaginator.resetCurrentPage();
-        loadNews(context, country, category);
+        loadNews(country, category);
     }
 
     public void onSwipeRefreshing() {
